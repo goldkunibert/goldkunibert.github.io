@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Citybuild Preisliste</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="wrap">
+    <h1>🪙 Citybuild Preisliste</h1>
+
+    <div class="controls">
+        <input id="search" type="search" placeholder="Item suchen...">
+        <select id="category">
+            <option value="">Alle Kategorien</option>
+        </select>
+    </div>
+</header>
+
+<main class="wrap">
+    <table>
+        <thead>
+        <tr>
+            <th>Item</th>
+            <th>Kategorie</th>
+            <th class="right">Preis</th>
+        </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+    </table>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
