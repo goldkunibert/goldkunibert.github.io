@@ -7,7 +7,8 @@ const $category = document.getElementById("category");
 let allData = [];
 
 function parseCSV(text) {
-    return text.trim().split("\n").map(row => row.split(","));
+    const delimiter = text.includes(";") ? ";" : ",";
+    return text.trim().split("\n").map(row => row.split(delimiter));
 }
 
 function loadData() {
@@ -15,7 +16,7 @@ function loadData() {
         .then(res => res.text())
         .then(csv => {
             const data = parseCSV(csv);
-            const headers = data[0].map(h => h.toLowerCase());
+            const headers = data[0].map(h => h.trim().toLowerCase());
 
             const itemIndex = headers.indexOf("item");
             const katIndex = headers.indexOf("kategorie");

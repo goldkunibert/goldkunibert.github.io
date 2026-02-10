@@ -76,3 +76,10 @@ tr:hover{
     font-weight:bold;
     color:var(--accent);
 }
+
+.disclaimer {
+    color: #9aa3b2;
+    font-size: 14px;
+    margin-top: -10px;
+    margin-bottom: 20px;
+}
