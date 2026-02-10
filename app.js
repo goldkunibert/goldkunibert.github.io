@@ -1,4 +1,4 @@
-const SHEET_CSV_URL = "";
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvwCII49Sgr5l9MR_06qtKkvyEPf8ykapcXpBRX-wqavcIBkDcq3aUmCrSdM-t7pS8HwDOPQqXkRwb/pub?output=csv";
 
 const $rows = document.getElementById("rows");
 const $search = document.getElementById("search");
