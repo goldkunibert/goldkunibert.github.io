@@ -83,3 +83,13 @@ tr:hover{
     margin-top: -10px;
     margin-bottom: 20px;
 }
+
+.item-icon {
+    width: 32px;      /* kannst du auch 40 oder 48 machen */
+    height: 32px;
+    margin-right: 8px;
+    vertical-align: middle;
+
+    image-rendering: auto;
+}
+

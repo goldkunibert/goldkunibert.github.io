@@ -1,10 +1,15 @@
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvwCII49Sgr5l9MR_06qtKkvyEPf8ykapcXpBRX-wqavcIBkDcq3aUmCrSdM-t7pS8HwDOPQqXkRwb/pub?output=csv";
 
+const ICON_VERSION = "1.21";
+const TEXTURES_URL = `https://unpkg.com/minecraft-textures/dist/textures/json/${ICON_VERSION}.id.json`;
+
 const $rows = document.getElementById("rows");
 const $search = document.getElementById("search");
 const $category = document.getElementById("category");
+const $icons = document.getElementById("icons"); // optional Dropdown
 
 let allData = [];
+let textureIndex = null;
 
 function detectDelimiter(text) {
     const firstLine = text.split(/\r?\n/).find(l => l.trim().length) || "";
@@ -14,7 +19,6 @@ function detectDelimiter(text) {
 }
 
 function parseCSV(text, delimiter) {
-    // CSV Parser mit Anführungszeichen-Unterstützung
     const rows = [];
     let cur = "", inQuotes = false;
     let row = [];
@@ -51,13 +55,10 @@ function parseCSV(text, delimiter) {
 }
 
 function cleanHeader(s) {
-    // trim, lower, remove quotes, remove weird spaces
     return (s ?? "")
         .toString()
-        .replace(/^\uFEFF/, "")           // BOM
-        .replace(/[“”„]/g, '"')           // fancy quotes -> normal
-        .replace(/^"+|"+$/g, "")          // surrounding quotes
-        .replace(/\s+/g, " ")             // collapse whitespace
+        .replace(/^\uFEFF/, "")
+        .replace(/^"+|"+$/g, "")
         .trim()
         .toLowerCase();
 }
@@ -69,6 +70,20 @@ function escapeHtml(s) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function toMinecraftId(mc_id) {
+    const v = (mc_id ?? "").toString().trim().toLowerCase();
+    if (!v || v === "none") return ""; // <-- NONE deaktiviert Icon
+    return v.includes(":") ? v : `minecraft:${v}`;
+}
+
+function getIconDataUrl(mc_id) {
+    if (!textureIndex) return "";
+    const key = toMinecraftId(mc_id);
+    if (!key) return "";
+    const hit = textureIndex.items?.[key];
+    return hit?.texture || "";
 }
 
 function buildCategoryOptions() {
@@ -83,39 +98,62 @@ function buildCategoryOptions() {
 function render() {
     const q = $search.value.trim().toLowerCase();
     const cat = $category.value;
+    const iconsOn = !$icons || $icons.value !== "off";
 
     const filtered = allData.filter(r =>
         (!q || r.item.toLowerCase().includes(q)) &&
         (!cat || r.kategorie === cat)
     );
 
-    $rows.innerHTML = filtered.map(r => `
-    <tr>
-      <td>${escapeHtml(r.item)}</td>
-      <td>${escapeHtml(r.kategorie)}</td>
-      <td class="right">${escapeHtml(r.preis)} 🪙</td>
-    </tr>
-  `).join("");
+    $rows.innerHTML = filtered.map(r => {
+        let iconHtml = "";
+
+        if (iconsOn) {
+            const icon = getIconDataUrl(r.mc_id);
+            if (icon) {
+                iconHtml = `<img src="${icon}" class="item-icon" alt="">`;
+            }
+        }
+
+        return `
+      <tr>
+        <td>${iconHtml}${escapeHtml(r.item)}</td>
+        <td>${escapeHtml(r.kategorie)}</td>
+        <td class="right">${escapeHtml(r.preis)} 🪙</td>
+      </tr>
+    `;
+    }).join("");
 }
 
-async function loadData() {
+async function loadTextures() {
+    try {
+        const res = await fetch(TEXTURES_URL, { cache: "force-cache" });
+        if (!res.ok) return;
+        textureIndex = await res.json();
+    } catch {
+        textureIndex = null;
+    }
+}
+
+async function loadPrices() {
     const res = await fetch(SHEET_CSV_URL, { cache: "no-store" });
-    if (!res.ok) throw new Error(`CSV nicht erreichbar (HTTP ${res.status})`);
+    if (!res.ok) throw new Error("CSV nicht erreichbar");
 
     const csvText = await res.text();
     const delimiter = detectDelimiter(csvText);
     const grid = parseCSV(csvText, delimiter);
 
-    if (grid.length < 2) throw new Error("CSV hat zu wenig Zeilen (Header + Daten fehlen).");
+    if (grid.length < 2) throw new Error("CSV hat zu wenig Zeilen");
 
     const headers = grid[0].map(cleanHeader);
 
-    const idxItem = headers.findIndex(h => h === "item");
-    const idxKat  = headers.findIndex(h => h === "kategorie");
+    const idxItem  = headers.findIndex(h => h === "item");
+    const idxKat   = headers.findIndex(h => h === "kategorie");
     const idxPreis = headers.findIndex(h => h === "preis");
+    const idxMc    = headers.findIndex(h => h === "mc_id");
 
     if (idxItem === -1 || idxKat === -1 || idxPreis === -1) {
-        throw new Error(`Spalten nicht gefunden. Gefunden: ${headers.join(" | ")}`);
+        throw new Error("Spalten fehlen: item | kategorie | preis");
     }
 
     allData = grid.slice(1)
@@ -123,17 +161,24 @@ async function loadData() {
             item: (row[idxItem] ?? "").toString().trim(),
             kategorie: (row[idxKat] ?? "").toString().trim(),
             preis: (row[idxPreis] ?? "").toString().trim(),
+            mc_id: idxMc !== -1 ? (row[idxMc] ?? "").toString().trim() : ""
         }))
         .filter(r => r.item);
 
     buildCategoryOptions();
+}
+
+async function init() {
+    await loadPrices();
+    await loadTextures();
     render();
 }
 
 $search.addEventListener("input", render);
 $category.addEventListener("change", render);
+if ($icons) $icons.addEventListener("change", render);
 
-loadData().catch(err => {
+init().catch(err => {
     console.error(err);
-    $rows.innerHTML = `<tr><td colspan="3">Fehler: ${escapeHtml(err.message)}</td></tr>`;
+    $rows.innerHTML = `<tr><td colspan="3">Fehler beim Laden</td></tr>`;
 });
