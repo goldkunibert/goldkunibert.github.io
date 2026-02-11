@@ -6,10 +6,10 @@ const TEXTURES_URL = `https://unpkg.com/minecraft-textures/dist/textures/json/${
 const $rows = document.getElementById("rows");
 const $search = document.getElementById("search");
 const $category = document.getElementById("category");
-const $icons = document.getElementById("icons"); // optional Dropdown
 
 let allData = [];
 let textureIndex = null;
+let openIndex = null; // welches Popup ist offen?
 
 function detectDelimiter(text) {
     const firstLine = text.split(/\r?\n/).find(l => l.trim().length) || "";
@@ -74,7 +74,7 @@ function escapeHtml(s) {
 
 function toMinecraftId(mc_id) {
     const v = (mc_id ?? "").toString().trim().toLowerCase();
-    if (!v || v === "none") return ""; // <-- NONE deaktiviert Icon
+    if (!v || v === "none") return "";
     return v.includes(":") ? v : `minecraft:${v}`;
 }
 
@@ -95,34 +95,82 @@ function buildCategoryOptions() {
         cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
 }
 
+function closePopup() {
+    if (openIndex === null) return;
+    const popup = document.getElementById(`popup-${openIndex}`);
+    if (popup) popup.classList.add("hidden");
+    openIndex = null;
+}
+
+function openPopup(index) {
+    // vorheriges schließen
+    if (openIndex !== null && openIndex !== index) {
+        closePopup();
+    }
+
+    const popup = document.getElementById(`popup-${index}`);
+    if (!popup) return;
+
+    popup.classList.remove("hidden");
+    openIndex = index;
+}
+
+function togglePopup(index) {
+    if (openIndex === index) {
+        closePopup();
+    } else {
+        openPopup(index);
+    }
+}
+
+// Für inline onclick:
+window.togglePopup = togglePopup;
+
 function render() {
-    const q = $search.value.trim().toLowerCase();
-    const cat = $category.value;
-    const iconsOn = !$icons || $icons.value !== "off";
+    const q = ($search?.value ?? "").trim().toLowerCase();
+    const cat = $category?.value ?? "";
 
     const filtered = allData.filter(r =>
         (!q || r.item.toLowerCase().includes(q)) &&
         (!cat || r.kategorie === cat)
     );
 
-    $rows.innerHTML = filtered.map(r => {
-        let iconHtml = "";
+    openIndex = null; // nach Render ist nichts offen
 
-        if (iconsOn) {
-            const icon = getIconDataUrl(r.mc_id);
-            if (icon) {
-                iconHtml = `<img src="${icon}" class="item-icon" alt="">`;
-            }
-        }
+    $rows.innerHTML = filtered.map((r, index) => {
+        const icon = getIconDataUrl(r.mc_id);
+        const iconHtml = icon ? `<img src="${icon}" class="item-icon" alt="">` : "";
+
+        const popupText = r.last_updated
+            ? `Zuletzt aktualisiert: ${escapeHtml(r.last_updated)}`
+            : "Kein Update-Datum gesetzt";
 
         return `
       <tr>
         <td>${iconHtml}${escapeHtml(r.item)}</td>
         <td>${escapeHtml(r.kategorie)}</td>
-        <td class="right">${escapeHtml(r.preis)} 🪙</td>
+        <td class="right">
+          <span class="price-clickable" data-index="${index}">
+            <span class="price-text" onclick="togglePopup(${index})">
+              ${escapeHtml(r.preis)} 🪙
+            </span>
+            <span id="popup-${index}" class="price-popup hidden">
+              ${popupText}
+            </span>
+          </span>
+        </td>
       </tr>
     `;
     }).join("");
+
+    // Hover-close auf Desktop: wenn man den Preisbereich verlässt, schließen
+    document.querySelectorAll(".price-clickable").forEach(el => {
+        el.addEventListener("mouseleave", () => {
+            // nur schließen, wenn dieses Element das offene Popup hat
+            const idx = Number(el.dataset.index);
+            if (openIndex === idx) closePopup();
+        });
+    });
 }
 
 async function loadTextures() {
@@ -151,6 +199,7 @@ async function loadPrices() {
     const idxKat   = headers.findIndex(h => h === "kategorie");
     const idxPreis = headers.findIndex(h => h === "preis");
     const idxMc    = headers.findIndex(h => h === "mc_id");
+    const idxLast  = headers.findIndex(h => h === "last_updated");
 
     if (idxItem === -1 || idxKat === -1 || idxPreis === -1) {
         throw new Error("Spalten fehlen: item | kategorie | preis");
@@ -161,12 +210,24 @@ async function loadPrices() {
             item: (row[idxItem] ?? "").toString().trim(),
             kategorie: (row[idxKat] ?? "").toString().trim(),
             preis: (row[idxPreis] ?? "").toString().trim(),
-            mc_id: idxMc !== -1 ? (row[idxMc] ?? "").toString().trim() : ""
+            mc_id: idxMc !== -1 ? (row[idxMc] ?? "").toString().trim() : "",
+            last_updated: idxLast !== -1 ? (row[idxLast] ?? "").toString().trim() : ""
         }))
         .filter(r => r.item);
 
     buildCategoryOptions();
 }
+
+// Klick irgendwo anders => schließen
+document.addEventListener("click", (e) => {
+    const clickedInside = e.target.closest && e.target.closest(".price-clickable");
+    if (!clickedInside) closePopup();
+});
+
+// ESC => schließen
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePopup();
+});
 
 async function init() {
     await loadPrices();
@@ -174,9 +235,8 @@ async function init() {
     render();
 }
 
-$search.addEventListener("input", render);
-$category.addEventListener("change", render);
-if ($icons) $icons.addEventListener("change", render);
+$search?.addEventListener("input", () => { closePopup(); render(); });
+$category?.addEventListener("change", () => { closePopup(); render(); });
 
 init().catch(err => {
     console.error(err);

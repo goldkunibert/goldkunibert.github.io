@@ -93,3 +93,57 @@ tr:hover{
     image-rendering: auto;
 }
 
+/* WICHTIG gegen Abschneiden */
+table { overflow: visible !important; }
+td, th { overflow: visible; }
+
+/* Preis-Klickbereich */
+.price-clickable{
+    position: relative;
+    display: inline-block;
+}
+
+/* Punktierte Unterstreichung wie "clickable hint" */
+.price-text{
+    display: inline-block;
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+}
+
+/* Popup: standardmäßig NACH OBEN (damit unten nix abgeschnitten wird) */
+.price-popup{
+    position: absolute;
+    right: 0;
+    bottom: 28px;   /* statt top */
+    top: auto;
+
+    background: #161a22;
+    border: 1px solid #2a3140;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #e8eaf0;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    z-index: 9999;
+
+    /* Animation */
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.price-popup.hidden{
+    display: none;
+}
+
+.price-popup:not(.hidden){
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
