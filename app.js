@@ -134,6 +134,10 @@ function render() {
         (!q || r.item.toLowerCase().includes(q)) &&
         (!cat || r.kategorie === cat)
     );
+    filtered.sort((a, b) =>
+        a.item.localeCompare(b.item, "de", { sensitivity: "base" })
+    );
+
 
     openIndex = null; // nach Render ist nichts offen
 
